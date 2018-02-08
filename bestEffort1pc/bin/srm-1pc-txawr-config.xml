@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+		http://www.springframework.org/schema/beans
+		http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+
+	<bean id="wndbDataSource" class="com.ibm.db2.jcc.DB2DataSource">
+		<property name="serverName" value="dsn01d.db.bnsf.com" />
+    	<property name="portNumber" value="55000" />
+    	<property name="databaseName" value="wndb" />
+		<property name="driverType" value="4" />
+		<property name="user" value="wntsmadm"/>
+		<property name="password" value="AXf9WM3b"/>
+		<property name="readOnly" value="false" />
+	</bean>
+	
+	<!-- Hibernate Session Factory -->
+	<bean id="wndbSessionFactory"
+		class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
+		<!-- make sure that hibernate uses the Atomikos datasource (JTA enabled)! -->
+		<property name="dataSource" ref="wndbDataSource" />
+		<property name="configLocations">
+			<list>
+				<value>classpath:${srm.persistence.hibernate.config}</value>
+				<value>classpath:com/bnsf/platform/event/model/persistable/spm-event-persistence-hibernate.cfg.xml
+				</value>
+			</list>
+		</property>
+		<property name="hibernateProperties">
+			<props>
+				<prop key="hibernate.dialect">${srm.persistence.sql.dialect}</prop>
+				<prop key="hibernate.default_schema">${srm.persistence.jdbc.schema}</prop>
+			</props>
+		</property>
+	</bean>
+	
+	<bean id="txManager"
+		class="org.springframework.orm.hibernate5.HibernateTransactionManager">
+		<property name="sessionFactory" ref="wndbSessionFactory" />
+		<property name="dataSource" ref="wndbDataSource"></property>
+	</bean>
+	
+	<bean id="srm.persistence.native.query.repository" class="com.bnsf.sirm.persist.api.config.TSMPersistenceConfigLoader"
+        factory-method="load">
+        <constructor-arg value="srm-persistence-native-query-config.xml"/>
+        <constructor-arg type="java.lang.Class" value="com.bnsf.sirm.persist.api.config.TsmQueryRepository"/>
+    </bean>
+	
+	<bean id="wndbNativeQueryManager" class="com.bnsf.sirm.persist.api.impl.SpringJdbcTemplateNativeQueryManagerImpl">
+		<constructor-arg ref="wndbDataSource" />
+		<constructor-arg ref="srm.persistence.native.query.repository" />
+	</bean>
+    
+    <!-- wndbSessionFactory is defined in srm-wndb-config.xml -->
+    <bean id="wndbPersistenceManager" class="com.bnsf.sirm.persist.api.impl.HibernateTsmPersistenceManagerImpl">
+        <constructor-arg ref="wndbSessionFactory"/>
+    </bean>
+    
+    <bean  id="shipmentRequestService" class="com.bnsf.sirm.transform.validation.ShipmentRequestBusinessService">
+        <property name="persistenceManager" ref="wndbPersistenceManager"/>
+        <property name="nativeQueryManager" ref="wndbNativeQueryManager"/>
+    </bean>	
+
+
+	<!-- Connection factory determination if local use activemq, otherwise use 
+		IBM MQ -->
+	<bean id="wmqConnectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory">
+		<property name="brokerURL" value="vm://localhost"/>
+	</bean>
+	
+	<!-- Use a new CachingConnectionFactory for every route because of prefetch -->
+	<bean id="wmqCachingConnectionFactory"
+		class="org.springframework.jms.connection.CachingConnectionFactory">
+		<property name="targetConnectionFactory" ref="wmqConnectionFactory" />
+		<property name="cacheConsumers" value="false" />
+		<property name="reconnectOnException" value="true" />
+		<!-- this value should match concurrentConsumers on JmsConfiguration -->
+		<property name="sessionCacheSize" value="1" />
+	</bean>
+
+	<bean id="wmqTxAwrCachingConnectionFactory"
+		class="org.springframework.jms.connection.TransactionAwareConnectionFactoryProxy">
+		<property name="targetConnectionFactory" ref="wmqCachingConnectionFactory">
+		</property>
+		<property name="synchedLocalTransactionAllowed" value="true" />
+	</bean>
+
+	<bean id="wmqConfig" class="org.apache.camel.component.jms.JmsConfiguration">
+		<property name="transactionManager" ref="txManager" />
+		<property name="connectionFactory" ref="wmqTxAwrCachingConnectionFactory" />
+		<property name="transacted" value="true" />
+		<property name="acknowledgementModeName" value="SESSION_TRANSACTED" />
+		<!-- this value should match sessionCacheSize on JmsTransactionManager -->
+		<property name="concurrentConsumers" value="1" />
+		<property name="cacheLevelName" value="CACHE_AUTO" />
+		<property name="transactionName" value="validationConsumer" />
+	</bean>
+
+	<bean id="wmq" class="org.apache.camel.component.jms.JmsComponent">
+		<property name="configuration" ref="wmqConfig" />
+	</bean>
+
+</beans>
+	

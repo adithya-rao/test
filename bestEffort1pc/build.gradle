@@ -1,0 +1,131 @@
+buildscript {
+	ext {
+		springBootVersion = '1.4.0.RELEASE'
+	}
+	repositories {
+		maven { url "http://artifactory.bnsf.com:8081/artifactory/repo" }
+	}
+	dependencies {
+		classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+		classpath('io.spring.gradle:dependency-management-plugin:0.5.2.RELEASE')
+		classpath group: 'com.bnsf.mp', name: 'gradle-commons', version: '1.65'
+		classpath(group: 'commons-io', name: 'commons-io', version: '2.4')
+	}
+}
+
+apply plugin: 'spring-boot'
+apply from : 'http://artifactory.bnsf.com:8081/artifactory/libs-release-local/com/bnsf/spm/spm-test-integration-support/0.0.0/SpmTestIntegrationSupport-0.0.0.gradle'
+apply from : 'http://artifactory.bnsf.com:8081/artifactory/libs-release-local/com/bnsf/srm/srm-parent/0.0.0/Srm-0.0.0.gradle'
+apply from : 'http://artifactory.bnsf.com:8081/artifactory/libs-release-local/com/bnsf/spm/spm-parent/0.0.0/BNSFPluginsParent-0.0.0.gradle'
+
+group = 'com.bnsf.srm'
+description = 'srm-correlation-process'
+version = srmVersion
+ 
+ext {
+	springBootVersion = '1.4.0.RELEASE'
+	hibernateCoreVersion ='5.2.2.Final'
+	beanioVersion = '2.1.0'
+	h2Version = '1.4.192'
+	db2jccVersion = '4.19.26'
+	dozerVersion = '5.5.1'
+	junitVersion = '4.12'
+	mockitoVersion = '1.10.19'
+	IBMMQVersion = '1.0'
+	activeMQVersion = '5.13.0'
+}
+
+configurations {
+	all {
+		exclude module: 'spring-boot-starter-logging'
+	}
+}
+
+dependencies {
+	
+	// Spring Boot dependencies
+	compile group: 'org.springframework.boot', name: 'spring-boot-starter-web', version: springBootVersion
+	compile group: 'org.springframework.boot', name: 'spring-boot-starter-log4j2', version: springBootVersion
+	compile group: 'org.springframework.boot', name: 'spring-boot-devtools', version: springBootVersion
+
+	// SPM dependencies
+	compile group: 'com.bnsf.spm', name: 'spm-event', version: spmEventVersion
+
+	// SRM dependencies
+	compile group: 'com.bnsf.srm', name: 'srm-common', version: srmCommonVersion	
+	compile group: 'com.bnsf.srm', name: 'srm-config', version: srmConfigVersion
+	compile group: 'com.bnsf.srm', name: 'srm-data-model', version: srmDataModelVersion
+	
+	// Miscellaneous dependencies
+	compile group: 'org.beanio', name: 'beanio', version: beanioVersion
+	compile group: 'net.sf.dozer', name: 'dozer', version: dozerVersion
+	compile group: 'com.ibm.db2.jcc', name: 'db2jcc4', version: db2jccVersion
+	// explicitly added dependencies on hibernate core version 5.2.2.Final. 'spring-boot' plugin down grades hibernate-core to 5.0.9.Final
+	// TODO: upgrade version of springboot
+	compile group: 'org.apache.activemq', name: 'activemq-broker', version: activeMQVersion
+	compile group: 'org.hibernate', name: 'hibernate-core', version: hibernateCoreVersion
+	compile group: 'org.apache.activemq', name: 'activemq-broker', version: activeMQVersion
+	compile group: 'org.apache.camel', name: 'camel-jms', version: camelVersion
+	
+	// IBM MQ related dependencies
+	compile(group: 'com.ibm.mq', name: 'commonservices', version: IBMMQVersion)
+	compile(group: 'com.ibm.mq', name: 'connector', version: IBMMQVersion)
+	compile(group: 'com.ibm.mq', name: 'headers', version: IBMMQVersion)
+	compile(group: 'com.ibm.mq', name: 'mq', version: IBMMQVersion)
+	compile(group: 'com.ibm.mq', name: 'jmqi', version: IBMMQVersion)
+	compile(group: 'com.ibm.mq.jmqi', name: 'local', version: IBMMQVersion)
+	compile(group: 'com.ibm.mq.jmqi', name: 'remote', version: IBMMQVersion)
+	compile(group: 'com.ibm.mq.jmqi', name: 'system', version: IBMMQVersion)
+	compile(group: 'com.ibm.mq.jms', name: 'admin', version: IBMMQVersion)
+	compile(group: 'com.ibm.mq', name: 'pcf', version: IBMMQVersion)
+	compile(group: 'com.ibm.mq', name: 'mqjms', version: IBMMQVersion)
+	compile(group: 'com.ibm.msg.client.commonservices', name: 'j2se', version: IBMMQVersion)
+	compile(group: 'com.ibm.msg.client', name: 'commonservices', version: IBMMQVersion)
+	compile(group: 'com.ibm.msg.client.jms', name: 'internal', version: IBMMQVersion)
+	compile(group: 'com.ibm.msg.client', name: 'jms', version: IBMMQVersion)
+	compile(group: 'com.ibm.msg.client', name: 'matchspace', version: IBMMQVersion)
+	compile(group: 'com.ibm.msg.client', name: 'provider', version: IBMMQVersion)
+	compile(group: 'com.ibm.msg.client', name: 'ref', version: IBMMQVersion)
+	compile(group: 'com.ibm.msg.client.wmq', name: 'common', version: IBMMQVersion)
+	compile(group: 'com.ibm.msg.client.wmq', name: 'factories', version: IBMMQVersion)
+	compile(group: 'com.ibm.msg.client', name: 'wmq', version: IBMMQVersion)
+	compile(group: 'com.ibm.msg.client.wmq', name: 'v6', version: IBMMQVersion)
+	compile(group: 'dhbcore', name: 'dhbcore', version: IBMMQVersion)
+
+	// Atomikos dependencies
+	compile group: 'com.atomikos', name: 'transactions-jta', version: atomikosVersion
+	compile group: 'com.atomikos', name: 'transactions', version: atomikosVersion
+	compile group: 'com.atomikos', name: 'transactions-api', version: atomikosVersion
+	compile group: 'com.atomikos', name: 'atomikos-util', version: atomikosVersion
+	compile group: 'com.atomikos', name: 'transactions-hibernate4', version: atomikosVersion
+	compile group: 'com.atomikos', name: 'transactions-jdbc', version: atomikosVersion
+	compile group: 'com.atomikos', name: 'transactions-jms', version: atomikosVersion
+
+	// Test dependencies
+	testCompile group: 'junit', name: 'junit', version: junitVersion
+	testCompile group: 'org.mockito', name: 'mockito-all', version: mockitoVersion
+	testCompile group: 'org.apache.camel', name: 'camel-test-spring', version:  camelVersion
+	testCompile group: 'org.apache.camel', name: 'camel-test', version: camelVersion
+	testCompile group: 'com.h2database', name: 'h2', version: h2Version
+	testCompile group: 'org.springframework.boot', name: 'spring-boot-starter-test', version: springBootVersion
+}
+
+tasks.withType(FindBugs) {
+	reports {
+		xml.enabled false
+		html.enabled true
+	}
+}
+
+bootRun {
+	systemProperties System.properties
+}
+
+jar {
+	baseName = 'srm-correlation-process'
+	version = srmVersion
+	manifest {
+		attributes(
+			"Main-Class": "com.bnsf.srm.correlation.process.SrmCorrelationApplication")
+	}
+}

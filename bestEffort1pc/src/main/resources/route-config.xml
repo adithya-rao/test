@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:util="http://www.springframework.org/schema/util" 
+	xsi:schemaLocation="
+		http://www.springframework.org/schema/beans
+		http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+		http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx.xsd
+		http://camel.apache.org/schema/spring
+		http://camel.apache.org/schema/spring/camel-spring.xsd
+		http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-4.0.xsd">
+
+	<!--  Beans for Correlation Request route -->
+	<bean id="srm.correlation.requestBatchingProcessor" class="com.bnsf.spm.platform.processors.CamelRouteMessageProcessor">
+        <property name="commandToExecute">
+            <bean class="com.bnsf.srm.correlation.process.route.RequestBatchingCommand">
+				<property name="service" ref="srm.correlation.businessService" />
+            </bean>
+        </property>
+	</bean>
+
+	<bean id="srm.correlation.requestSerializationProcessor" class="com.bnsf.spm.platform.processors.CamelRouteMessageProcessor">
+        <property name="commandToExecute">
+            <bean class="com.bnsf.srm.correlation.process.route.RequestSerializerCommand">
+				<property name="serializer" ref="srm.correlation.requestSerializer" />	
+				<property name="service" ref="srm.correlation.businessService" />
+            </bean>
+        </property>
+	</bean>
+
+	<bean id="srm.correlation.requestStatusUpdateProcessor" class="com.bnsf.spm.platform.processors.CamelRouteMessageProcessor">
+        <property name="commandToExecute">
+			<bean class="com.bnsf.srm.correlation.process.route.UpdateRequestStateCommand">
+				<property name="service" ref="srm.correlation.businessService" />
+			</bean>
+        </property>
+	</bean>
+
+    <bean id="srm.correlation.exceptionProcessor" class="com.bnsf.srm.correlation.process.route.ExceptionPropagatorProcessor" />
+
+    <bean id="srm.correlation.requestSerializer" class="com.bnsf.platform.event.model.serialization.BeanIOSerializer" >
+		<constructor-arg name="mappingFile" value="${srm.correlation.dispatch.beanIOMapping}" ></constructor-arg>
+		<constructor-arg name="streamName" value="${srm.correlation.dispatch.requestStream}" ></constructor-arg>
+	</bean>
+
+	<!-- Correlation Process Request Route -->
+	<routeContext id="srm-correlation-process-request-context" xmlns="http://camel.apache.org/schema/spring">
+		<!-- Polling processing route -->
+		<route id="srm-correlation-polling-route">
+			<from
+				uri="timer://simpleTimer?period={{srm.correlation.timer.component.period}}&amp;fixedRate={{srm.correlation.timer.component.fixedRate}}"
+				id="srm-correlation-request-poll" />
+            <onException>
+                <exception>java.lang.Exception</exception>
+                <redeliveryPolicy maximumRedeliveries="0"/>
+                <handled><constant>true</constant></handled>
+                <bean ref="srm.correlation.exceptionProcessor" method="process"/>
+                <to uri="direct:correlationErrorHandler"/>
+            </onException>
+			<to uri="bean:srm.correlation.requestBatchingProcessor" id="requestBatchingProcessor" />
+			<split>
+				<!-- Camel splitter to split a collection from the message and process them individually -->
+				<simple>${body}</simple>
+				<to uri="direct:correlationRequestProcess" />
+			</split>
+		</route>
+		
+		<!-- Correlation request processing route -->
+		<route id="srm-correlation-request-process-route">
+			<from uri="direct:correlationRequestProcess" id="srm-correlation-request-process"/>
+            <!-- At this point, route exchange body has a single shipment request id which will be used for further processing -->
+			<setHeader headerName="SHIPMENT_REQUEST_ID">
+        		<simple>${body}</simple>
+      		</setHeader>
+            <onException>
+                <exception>java.lang.Exception</exception>
+                <redeliveryPolicy maximumRedeliveries="0"/>
+                <handled><constant>true</constant></handled>
+                <bean ref="srm.correlation.exceptionProcessor" method="process"/>
+                <to uri="direct:correlationErrorHandler"/>
+            </onException>
+			<transacted />
+			<to uri="bean:srm.correlation.requestSerializationProcessor" id="requestSerializationProcessor" />
+			<to uri="scjms:queue:{{srm.correlation.jms.destination.queue.to.mainframe}}" id="tssRequestQueue" />
+			<to uri="bean:srm.correlation.requestStatusUpdateProcessor" id="requestStatusUpdateProcessor" />
+		</route>
+		
+		<!-- Correlation error handling route -->
+		<route id="srm-correlation-error-handler-route">
+			<from uri="direct:correlationErrorHandler" id="correlationErrorHandler" />
+			<choice>
+				<when>
+					<simple>${exchangeProperty.HandleException} == 'RollBack'</simple>
+					<log message="Caught Rollback Exception - Correlation Camel Context route processing - failed : ${body}" loggingLevel="ERROR" />
+					<rollback message="The current message was marked for Rollback. Please see redelivery policy for re-attempts." />
+				</when>
+				<otherwise>
+					<log message="Caught Unknown Exception - Correlation Camel Context route processing - failed : ${body}" loggingLevel="ERROR" />
+					<rollback message="The current message was marked for Rollback. Please see redelivery policy for re-attempts." />
+				</otherwise>
+			</choice>
+		</route>
+	</routeContext>
+
+</beans>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<TsmQueryRepository appId="SrmValidationPersistence">
+
+	<Query id="getShipmentRequestIdByTSSCorrelationId">
+		<value>SELECT SHPMT_RQST_ID FROM WN.T_SHPMT_RQST_PRCSG_STAT WHERE TSS_CORLTN_ID = :tssCorrelationId</value>
+		<!-- <value>SELECT SHPMT_RQST_ID FROM WN.T_SHPMT_RQST_PRCSG_STAT WHERE TSS_CORLTN_ID = ?</value> -->
+	</Query>
+		
+</TsmQueryRepository>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:util="http://www.springframework.org/schema/util" 
+	xsi:schemaLocation="
+		http://www.springframework.org/schema/beans
+		http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+		http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx.xsd
+		http://camel.apache.org/schema/spring
+		http://camel.apache.org/schema/spring/camel-spring.xsd
+		http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-4.0.xsd">
+
+	<!-- JMS, Database and Transactions -->
+	<import resource="classpath:/srm-1pc-txawr-config.xml" />
+	
+	<!-- Business Services -->
+	<import resource="classpath:/com/bnsf/srm/correlation/process/service/srm-correlation-process-business-service-config.xml" />
+	
+	<!-- Camel Route -->
+	<import resource="classpath:/route-config.xml" />
+	<camelContext id="srm-correlation-camel-context" xmlns="http://camel.apache.org/schema/spring" useMDCLogging="true">
+		<routeContextRef ref="srm-correlation-process-request-context" />
+	</camelContext>
+
+</beans>
